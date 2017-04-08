@@ -10,7 +10,8 @@ typedef enum {
     INT = 0x0,
     BOOL = 0x1,
     CONS = 0x2,
-    FUN = 0x3,
+    VEC = 0x3,
+    FUN = 0x4,
 } type;
 
 typedef struct {
@@ -20,8 +21,8 @@ typedef struct {
     short nfrees;
 } func;
 
-#define CAR(c) (((long *) c)[0])
-#define CDR(c) (((long *) c)[1])
+#define CAR(c) (((long *) (c))[0])
+#define CDR(c) (((long *) (c))[1])
 
 typedef enum {
     I_EOS, // end of instruction stream
@@ -34,8 +35,13 @@ typedef enum {
     I_JMPNIL, // jmp if stack[1] is nil
     I_CAR, // car stack[1]
     I_CDR, // cdr stack[1]
+
     I_VECNEW, // vec new of size stack[0]
-    I_VECREF, // vec ref of stack[1] at index stack[0]
+    I_VECREF, // get val at index (stack[1]) of vec (stack[2])
+    I_VECSET, // set val (stack[1]) at index (stack[2]) of vec (stack[3])
+    I_VECLEN, // get the vector length
+
+    I_RET, // return from function
     I_LNEW, // new lambda
 
     I_CALL, // call lambda

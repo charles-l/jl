@@ -1,11 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
 #include "ops.h"
 
 #define STACK_SIZE 1024
 #define STACK_END (stack + STACK_SIZE - 1)
 #define LOCALS_SIZE 16
+#define ADV_I (*ip++)
+#define CUR_I (*ip)
 
 void print_val(long v) {
     if((v & BITMASK) == INT) {
@@ -22,6 +25,17 @@ void print_val(long v) {
     } else if ((v & BITMASK) == FUN) {
         func *f = (func *) (v & ~FUN);
         printf("FUN<args: %d frees: %d>", f->nargs, f->nfrees);
+    } else if ((v & BITMASK) == VEC) {
+        long *vec = (long *) (v & ~VEC);
+        unsigned short n = ((short *) vec)[0];
+        printf("VEC<n: %d", n);
+        int i = 0;
+        for(; i < n && i < 5; i++) {
+            putchar(' ');
+            print_val(vec[i + 1]);
+        }
+        if (i < n) printf("...");
+        printf(">");
     } else {
         printf("?<0x%x>", v);
     }
@@ -45,6 +59,11 @@ long int_new(long v) {
     return v << NSHIFT;
 }
 
+long untag_int(long v) {
+    assert((v & BITMASK) == INT);
+    return v >> 3;
+}
+
 long bool_new(long v) {
     return (v << NSHIFT) | BOOL;
 }
@@ -56,13 +75,28 @@ long cons_new(long a, long b) {
     return (long) v | CONS;
 }
 
-long fun_new(short nfrees, short nargs, void *code) {
+long fun_new(unsigned short nfrees, unsigned short nargs, void *code) {
     func *f = malloc(sizeof(func));
     f->frees = malloc(sizeof(long) * nfrees);
     f->code = code;
     f->nargs = nargs;
     f->nfrees = nfrees;
     return (long) f | FUN;
+}
+
+long vec_new(unsigned short n) {
+    // upper two bytes are the max length
+    // lower two bytes unused for now.
+    // the rest are long slots that can be filled with values
+    void *vec = malloc((n + 1) * sizeof(long));
+    ((short *) vec)[0] = n;
+    memset(((long *) vec) + 1, 0, sizeof(long) * n);
+    return ((long) vec | VEC);
+}
+
+long vec_ref(void *vec, unsigned short i) {
+    assert(i < ((short *) vec)[0]);
+    return(((long *) vec)[i + 1]);
 }
 
 int main() {
@@ -80,37 +114,55 @@ int main() {
         I_JMP, 2, // skip next instruction
         I_PUSH, int_new(0xDEADBEEF << 1),
         I_PUSH, bool_new(0),
-        I_PUSH, int_new(2),
+        I_PUSH, int_new(94),
         I_CONS,
+        I_DUP, 1, // dup cons on the top of the stack
+        I_CAR,
+        I_DUP, 2,
+        I_CDR,
         I_PUSH, bool_new(0),
         I_CMPNIL,
 
         I_PUSH, int_new(1337),
+
         ///
 
         I_PUSH, bool_new(1),
-
         I_JMPNIL, 5,
 
         I_PUSH, int_new(1),
-
         I_JMP, 3,
+
         I_PUSH, int_new(2),
+
+        I_PUSH, int_new(3),
+        I_VECNEW,
+
+        I_PUSH, int_new(2),
+        I_PUSH, bool_new(1),
+        I_VECSET,
+
+        I_PUSH, int_new(1),
+        I_PUSH, int_new(8),
+        I_VECSET,
+
+        I_DUP, 1,
+        I_VECLEN,
 
         I_EOS,
     };
     op *ip = in_stream; // instruction pointer
 
-    while(*ip) {
-        switch(*ip++) {
+    while(CUR_I != I_EOS) {
+        switch(ADV_I) {
             case I_PUSH:
-                PUSH(*ip++);
+                PUSH(ADV_I);
                 break;
             case I_POP:
                 POP();
                 break;
             case I_DUP:
-                PUSH(sp[*ip++ + 1]);
+                PUSH(sp[ADV_I + 1]);
                 break;
             case I_JMP:
                 ip += (int) ip[0];
@@ -130,12 +182,58 @@ int main() {
                     long v = POP();
                     assert((v & BITMASK) == BOOL);
                     if(v == NIL) {
-                        ip += (int) *ip;
+                        ip += (int) CUR_I;
                     } else {
-                        ip++;
+                        ADV_I;
                     }
                 }
                 break;
+            case I_CAR:
+                {
+                    long v = POP();
+                    assert((v & BITMASK) == CONS);
+                    PUSH(CAR(v & ~CONS));
+                }
+                break;
+            case I_CDR:
+                {
+                    long v = POP();
+                    assert((v & BITMASK) == CONS);
+                    PUSH(CDR(v & ~CONS));
+                }
+                break;
+            case I_VECNEW:
+                {
+                    unsigned short n = untag_int(POP());
+                    PUSH(vec_new(n));
+                }
+                break;
+            case I_VECREF:
+                {
+                    unsigned short i = untag_int(POP());
+                    void *vec = (void *) (((long) POP()) & ~VEC);
+                    PUSH(vec_ref(vec, i));
+                }
+                break;
+            case I_VECSET:
+                {
+                    long val = POP();
+                    unsigned short i = untag_int(POP());
+                    void *vec = (void *) (((long) POP()) & ~VEC);
+                    assert(i < ((short *) vec)[0]); // sanity check on index
+                    ((long *) vec)[i + 1] = val;
+                    PUSH((long) vec | VEC); // should we really push back the vector?
+                                            // should vectors be immutable?
+                }
+                break;
+            case I_VECLEN:
+                {
+                    short* vec = ((short *) (POP() & ~VEC));
+                    PUSH(int_new(vec[0]));
+                }
+            case I_RET:
+                {
+                }
         }
     }
 
