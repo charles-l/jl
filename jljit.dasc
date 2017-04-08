@@ -1,0 +1,44 @@
+#include "dynasm/dasm_proto.h"
+#include "dynasm/dasm_x86.h"
+#include <sys/mman.h>
+
+|.arch x64
+|.actionlist actions
+
+dasm_State *state;
+unsigned npc = 8;
+unsigned nextpc = 0;
+
+int main (int argc, char *argv[]) {
+    dasm_State** Dst = &state;
+
+    |.section code
+    dasm_init(&state, DASM_MAXSECTION);
+
+    |.globals lbl_
+    void *labels[lbl__MAX];
+    dasm_setupglobal(&state, labels, lbl__MAX);
+
+    |.actionlist actions
+    dasm_setup(&state, actions);
+    dasm_growpc(&state, npc);
+
+    |.code
+    |->main:
+    | pop rdi
+    | pop rsi
+    | pop rbx
+    | pop
+    |ret 4
+
+    size_t sz;
+    void *buf;
+    dasm_link(state, &sz);
+    buf = mmap(0, sz, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    dasm_encode(state, buf);
+    mprotect(buf, sz, PROT_READ | PROT_EXEC);
+
+    dasm_free(&state);
+
+    return (void(*))labels[lbl_main];
+}
