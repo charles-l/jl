@@ -14,13 +14,6 @@ typedef enum {
     FUN = 0x4,
 } type;
 
-typedef struct {
-    long *frees;
-    void *code;
-    short nargs;
-    short nfrees;
-} func;
-
 #define CAR(c) (((long *) (c))[0])
 #define CDR(c) (((long *) (c))[1])
 
@@ -41,8 +34,8 @@ typedef enum {
     I_VECSET, // set val (stack[1]) at index (stack[2]) of vec (stack[3])
     I_VECLEN, // get the vector length
 
+    I_CLOSNEW, // new closure: stack[3] = code pointer, stack[2] = frees vec, stack[1] = nargs
     I_RET, // return from function
-    I_LNEW, // new lambda
 
     I_CALL, // call lambda
     I_CCALL, // call c function

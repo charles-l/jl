@@ -23,8 +23,10 @@ void print_val(long v) {
         print_val(CDR(p));
         printf(")");
     } else if ((v & BITMASK) == FUN) {
-        func *f = (func *) (v & ~FUN);
-        printf("FUN<args: %d frees: %d>", f->nargs, f->nfrees);
+        long *p = (long *) (v & ~FUN);
+        printf("FUN<code: %p nargs: %d frees: ", p[1], p[3]);
+        print_val(p[2]);
+        putchar('>');
     } else if ((v & BITMASK) == VEC) {
         long *vec = (long *) (v & ~VEC);
         unsigned short n = ((short *) vec)[0];
@@ -75,15 +77,6 @@ long cons_new(long a, long b) {
     return (long) v | CONS;
 }
 
-long fun_new(unsigned short nfrees, unsigned short nargs, void *code) {
-    func *f = malloc(sizeof(func));
-    f->frees = malloc(sizeof(long) * nfrees);
-    f->code = code;
-    f->nargs = nargs;
-    f->nfrees = nfrees;
-    return (long) f | FUN;
-}
-
 long vec_new(unsigned short n) {
     // upper two bytes are the max length
     // lower two bytes unused for now.
@@ -99,12 +92,23 @@ long vec_ref(void *vec, unsigned short i) {
     return(((long *) vec)[i + 1]);
 }
 
+long vec_set(void *vec, unsigned short i, long val) {
+    assert(i < ((short *) vec)[0]); // sanity check on index
+    ((long *) vec)[i + 1] = val;
+    return((long) vec | VEC); // should we really push back the vector?
+    // should vectors be immutable?
+}
+
 int main() {
     long stack[STACK_SIZE];
     long locals[LOCALS_SIZE];
     long *sp = STACK_END;
 
-    op in_stream[] = {
+    op test_fun[] = {
+        I_PUSH, int_new(3),
+    };
+
+    long in_stream[] = {
         I_PUSH, int_new(4),
         I_PUSH, bool_new(1),
         I_PUSH, int_new(6),
@@ -149,9 +153,15 @@ int main() {
         I_DUP, 1,
         I_VECLEN,
 
+        I_PUSH, (long) test_fun,
+        I_PUSH, int_new(2),
+        I_VECNEW,
+        I_PUSH, 1,
+        I_CLOSNEW,
+
         I_EOS,
     };
-    op *ip = in_stream; // instruction pointer
+    long *ip = in_stream; // instruction pointer
 
     while(CUR_I != I_EOS) {
         switch(ADV_I) {
@@ -220,10 +230,7 @@ int main() {
                     long val = POP();
                     unsigned short i = untag_int(POP());
                     void *vec = (void *) (((long) POP()) & ~VEC);
-                    assert(i < ((short *) vec)[0]); // sanity check on index
-                    ((long *) vec)[i + 1] = val;
-                    PUSH((long) vec | VEC); // should we really push back the vector?
-                                            // should vectors be immutable?
+                    PUSH(vec_set(vec, i, val));
                 }
                 break;
             case I_VECLEN:
@@ -231,9 +238,20 @@ int main() {
                     short* vec = ((short *) (POP() & ~VEC));
                     PUSH(int_new(vec[0]));
                 }
-            case I_RET:
+                break;
+            case I_CLOSNEW:
                 {
+                    // TODO: assert types
+                    short nargs = POP();
+                    long *frees = (long *) POP();
+                    void *code = (void *) POP();
+                    long *v = (long *) (vec_new(3) & ~VEC);
+                    v[1] = (long) code;
+                    v[2] = (long) frees;
+                    v[3] = nargs;
+                    PUSH((long) v | FUN);
                 }
+                break;
         }
     }
 
