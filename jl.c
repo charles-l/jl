@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
-#include "ops.h"
+#include "vm.h"
 
 #define STACK_SIZE 1024
 #define STACK_END (stack + STACK_SIZE - 1)
@@ -10,38 +10,29 @@
 #define ADV_I (*ip++)
 #define CUR_I (*ip)
 
-void print_val(long v) {
-    if((v & BITMASK) == INT) {
-        printf("INT<%d>", v >> NSHIFT);
-    } else if ((v & BITMASK) == BOOL) {
-        printf((v >> 3) == 1 ? "#t" : "nil");
-    } else if ((v & BITMASK) == CONS) {
-        long *p = (long *) (v & ~CONS);
-        printf("(");
-        print_val(CAR(p));
-        printf(" . ");
-        print_val(CDR(p));
-        printf(")");
-    } else if ((v & BITMASK) == FUN) {
-        long *p = (long *) (v & ~FUN);
-        printf("FUN<code: %p nargs: %d frees: ", p[1], p[3]);
-        print_val(p[2]);
-        putchar('>');
-    } else if ((v & BITMASK) == VEC) {
-        long *vec = (long *) (v & ~VEC);
-        unsigned short n = ((short *) vec)[0];
-        printf("VEC<n: %d", n);
-        int i = 0;
-        for(; i < n && i < 5; i++) {
-            putchar(' ');
-            print_val(vec[i + 1]);
-        }
-        if (i < n) printf("...");
-        printf(">");
-    } else {
-        printf("?<0x%x>", v);
-    }
-}
+typedef enum {
+    I_EOS, // end of instruction stream
+    I_PUSH,
+    I_POP,
+    I_DUP, // duplicate ith element on the stack and push it to the top
+    I_JMP, // ip += stack[1]
+    I_CONS, // cons stack[1] stack[2]
+    I_CMPNIL, // cmpnil stack[0]
+    I_JMPNIL, // jmp if stack[1] is nil
+    I_CAR, // car stack[1]
+    I_CDR, // cdr stack[1]
+
+    I_VECNEW, // vec new of size stack[0]
+    I_VECREF, // get val at index (stack[1]) of vec (stack[2])
+    I_VECSET, // set val (stack[1]) at index (stack[2]) of vec (stack[3])
+    I_VECLEN, // get the vector length
+
+    I_CLOSNEW, // new closure: stack[3] = code pointer, stack[2] = frees vec, stack[1] = nargs
+    I_RET, // return from function
+
+    I_CALL, // execute lambda
+    I_CCALL, // call c function
+} op;
 
 void dump_stack(long *stack, long *sp) {
     puts("=== TOP ===");
@@ -57,10 +48,6 @@ void dump_stack(long *stack, long *sp) {
 #define PUSH(v) (*sp-- = (v))
 #define POP() ((sp++)[1])
 
-long int_new(long v) {
-    return v << NSHIFT;
-}
-
 long untag_int(long v) {
     assert((v & BITMASK) == INT);
     return v >> 3;
@@ -68,13 +55,6 @@ long untag_int(long v) {
 
 long bool_new(long v) {
     return (v << NSHIFT) | BOOL;
-}
-
-long cons_new(long a, long b) {
-    long *v = malloc(sizeof(long) * 2);
-    v[0] = a;
-    v[1] = b;
-    return (long) v | CONS;
 }
 
 long vec_new(unsigned short n) {
@@ -99,70 +79,9 @@ long vec_set(void *vec, unsigned short i, long val) {
     // should vectors be immutable?
 }
 
-int main() {
-    long stack[STACK_SIZE];
-    long locals[LOCALS_SIZE];
-    long *sp = STACK_END;
-
-    op test_fun[] = {
-        I_PUSH, int_new(3),
-    };
-
-    long in_stream[] = {
-        I_PUSH, int_new(4),
-        I_PUSH, bool_new(1),
-        I_PUSH, int_new(6),
-        I_POP,
-        I_DUP, 2,
-        I_PUSH, int_new(6),
-        I_JMP, 2, // skip next instruction
-        I_PUSH, int_new(0xDEADBEEF << 1),
-        I_PUSH, bool_new(0),
-        I_PUSH, int_new(94),
-        I_CONS,
-        I_DUP, 1, // dup cons on the top of the stack
-        I_CAR,
-        I_DUP, 2,
-        I_CDR,
-        I_PUSH, bool_new(0),
-        I_CMPNIL,
-
-        I_PUSH, int_new(1337),
-
-        ///
-
-        I_PUSH, bool_new(1),
-        I_JMPNIL, 5,
-
-        I_PUSH, int_new(1),
-        I_JMP, 3,
-
-        I_PUSH, int_new(2),
-
-        I_PUSH, int_new(3),
-        I_VECNEW,
-
-        I_PUSH, int_new(2),
-        I_PUSH, bool_new(1),
-        I_VECSET,
-
-        I_PUSH, int_new(1),
-        I_PUSH, int_new(8),
-        I_VECSET,
-
-        I_DUP, 1,
-        I_VECLEN,
-
-        I_PUSH, (long) test_fun,
-        I_PUSH, int_new(2),
-        I_VECNEW,
-        I_PUSH, 1,
-        I_CLOSNEW,
-
-        I_EOS,
-    };
-    long *ip = in_stream; // instruction pointer
-
+long eval(long *code, long **spp) {
+    long *sp = *spp;
+    long *ip = code; // instruction pointer
     while(CUR_I != I_EOS) {
         switch(ADV_I) {
             case I_PUSH:
@@ -241,19 +160,100 @@ int main() {
                 break;
             case I_CLOSNEW:
                 {
+                    closure *c = malloc(sizeof(closure));
+                    c->nargs = POP();
+                    c->frees = (long *) POP();
+                    c->code = (void *) POP();
                     // TODO: assert types
-                    short nargs = POP();
-                    long *frees = (long *) POP();
-                    void *code = (void *) POP();
-                    long *v = (long *) (vec_new(3) & ~VEC);
-                    v[1] = (long) code;
-                    v[2] = (long) frees;
-                    v[3] = nargs;
-                    PUSH((long) v | FUN);
+                    PUSH((long) c | FUN);
+                }
+                break;
+            case I_CALL:
+                {
+                    long *c = (long *) POP();
+                    PUSH(eval(c, spp));
+                }
+                break;
+            case I_RET:
+                {
+                    return POP();
                 }
                 break;
         }
     }
+    *spp = sp;
+    return NIL;
+}
 
+int main() {
+    long stack[STACK_SIZE];
+    long locals[LOCALS_SIZE];
+    long *sp = STACK_END;
+
+    op test_fun[] = {
+        I_PUSH, int_new(8),
+        I_PUSH, int_new(8),
+        I_RET,
+    };
+
+    // TODO: convert this to bytes so its
+    // ya know, bytecode?
+    long in_stream[] = {
+        I_PUSH, int_new(4),
+        I_PUSH, bool_new(1),
+        I_PUSH, int_new(6),
+        I_POP,
+        I_DUP, 2,
+        I_PUSH, int_new(6),
+        I_JMP, 2, // skip next instruction
+        I_PUSH, int_new(0xDEADBEEF << 1),
+        I_PUSH, bool_new(0),
+        I_PUSH, int_new(94),
+        I_CONS,
+        I_DUP, 1, // dup cons on the top of the stack
+        I_CAR,
+        I_DUP, 2,
+        I_CDR,
+        I_PUSH, bool_new(0),
+        I_CMPNIL,
+
+        I_PUSH, int_new(1337),
+
+        ///
+
+        I_PUSH, bool_new(1),
+        I_JMPNIL, 5,
+
+        I_PUSH, int_new(1),
+        I_JMP, 3,
+
+        I_PUSH, int_new(2),
+
+        I_PUSH, int_new(3),
+        I_VECNEW,
+
+        I_PUSH, int_new(2),
+        I_PUSH, bool_new(1),
+        I_VECSET,
+
+        I_PUSH, int_new(1),
+        I_PUSH, int_new(8),
+        I_VECSET,
+
+        I_DUP, 1,
+        I_VECLEN,
+
+        I_PUSH, (long) test_fun,
+        I_PUSH, int_new(2),
+        I_VECNEW,
+        I_PUSH, 1,
+        I_CLOSNEW,
+
+        I_CALL,
+
+        I_EOS,
+    };
+
+    eval(in_stream, &sp);
     dump_stack(stack, sp);
 }
