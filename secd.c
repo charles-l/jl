@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <stdarg.h>
 #include "vm.h"
 
 // registers
@@ -44,9 +45,16 @@ long vint(long v) {
 
 long pop() {
     assert(S != NIL);
-    long v = car(S);
-    S = (pair) cdr(S);
-    return (long) S;
+    long v = car_(S);
+    S = (pair) cdr_(S);
+    return (long) v;
+}
+
+long popi() {
+    assert(C != NIL);
+    long v = car_(C);
+    C = (pair) cdr_(C);
+    return (long) C;
 }
 
 void push(long v) {
@@ -55,13 +63,24 @@ void push(long v) {
 
 int eval() {
     while(C != (pair) NIL) {
-        switch(car(C)) {
+        switch(car_(C)) {
             case LNIL:
                 push((long) NIL);
                 break;
             case LDC:
-                C = (pair) cdr(C);
-                push(car(C));
+                C = (pair) cdr_(C);
+                push(car_(C));
+                break;
+            case LD:
+                {
+                    pair v = (pair) popi();
+                    assert(car_(v) == 1); // TODO: look in surrounding scope
+                    int d = cdr_(v);
+                    pair p;
+                    for(p = (pair) car_(E); d-- && p != NIL; p = (pair) cdr_(p));
+                    assert(p != NIL); // TODO: throw error
+                    push(car_(p));
+                }
                 break;
             case CONS:
                 {
@@ -71,16 +90,26 @@ int eval() {
                 }
                 break;
         }
-        C = (pair) cdr(C);
+        popi();
     }
 }
 
+// terser pair generation
+#define P(car, cdr) cons_(car, (long) cdr)
+
 int main() {
-    op o;
-    C = cons_(24, (long) C);
-    C = cons_(LDC, (long) C);
-    C = cons_(LNIL, (long) C);
-    //C = cons_(CONS, (long) C);
+    C = P(LNIL,
+            P(LDC,
+                P(24,
+                    P(CONS,
+                        P(LNIL,
+                            NIL)))));
+    /*C = P(LNIL,
+            P(LNIL,
+                P(LNIL,
+                    P(LNIL,
+                        P(LNIL,
+                            NIL)))));*/
     eval();
     print_utlist(S);
     return 0;

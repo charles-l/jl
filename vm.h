@@ -20,14 +20,17 @@ typedef struct {
 
 typedef long *pair;
 
+#define car_(c) ((c)[0])
+#define cdr_(c) ((c)[1])
+
 long car(pair c) {
     assert((long) c & T_CONS);
-    return c[0];
+    return car_((pair) ((long) c & ~T_CONS));
 }
 
 long cdr(pair c) {
     assert((long) c & T_CONS);
-    return c[1];
+    return cdr_((pair) ((long) c & ~T_CONS));
 }
 
 void print_val(long v) {
@@ -36,8 +39,8 @@ void print_val(long v) {
     //} else if ((v & BITMASK) == T_BOOL) {
         //printf((v >> 3) == 1 ? "#t" : "nil");
     } else if ((v & BITMASK) == T_CONS) {
-        long *p = (long *) (v & ~T_CONS);
-        if(p) {
+        pair p = (pair) v;
+        if(p != NIL) {
             printf("(");
             print_val(car(p));
             printf(" . ");
@@ -51,29 +54,18 @@ void print_val(long v) {
         printf("FUN<code: %p nargs: %d frees: ", c->code, c->nargs);
         print_val((long) c->frees);
         putchar('>');
-    } /*else if ((v & BITMASK) == T_VEC) {
-        long *vec = (long *) (v & ~T_VEC);
-        unsigned short n = ((short *) vec)[0];
-        printf("VEC<n: %d", n);
-        int i = 0;
-        for(; i < n && i < 5; i++) {
-            putchar(' ');
-            print_val(vec[i + 1]);
-        }
-        if (i < n) printf("...");
-        printf(">");
-    } */ else {
+    } else {
         printf("?<0x%x>", v);
     }
 }
 
 void print_utlist(pair l) {
-    if(l) {
-        putchar('(');
-        print_val(car(l));
-        printf(" . ");
-        print_utlist((pair) cdr(l));
-        putchar(')');
+    if(l != NIL) {
+        print_val(car_(l));
+        if(cdr_(l) != (long) NIL) {
+            putchar(' ');
+            print_utlist((pair) cdr_(l));
+        }
     } else {
         printf("'()");
     }
