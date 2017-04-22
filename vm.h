@@ -23,22 +23,28 @@ typedef long *pair;
 #define car_(c) ((c)[0])
 #define cdr_(c) ((c)[1])
 
+#define UNTAGC(c) ((pair) (((long) (c)) & ~T_CONS))
+#define CHECK_TAG(t, v) ((((long) (v)) & BITMASK) == (t))
+#define IS_CONS(v) CHECK_TAG(T_CONS, (v))
+#define IS_INT(v) CHECK_TAG(T_INT, (v))
+#define IS_FUN(v) CHECK_TAG(T_FUN, (v))
+
 long car(pair c) {
-    assert(((long) c & BITMASK) == T_CONS);
-    return car_((pair) ((long) c & ~T_CONS));
+    assert(IS_CONS(c));
+    return car_(UNTAGC(c));
 }
 
 long cdr(pair c) {
-    assert(((long) c & BITMASK) == T_CONS);
-    return cdr_((pair) ((long) c & ~T_CONS));
+    assert(IS_CONS(c));
+    return cdr_(UNTAGC(c));
 }
 
 void print_val(long v) {
-    if((v & BITMASK) == T_INT) {
+    if(IS_INT(v)) {
         printf("INT<%d>", v >> NSHIFT);
     //} else if ((v & BITMASK) == T_BOOL) {
         //printf((v >> 3) == 1 ? "#t" : "nil");
-    } else if ((v & BITMASK) == T_CONS) {
+    } else if (IS_CONS(v)) {
         pair p = (pair) v;
         if(p != NIL) {
             printf("(");
@@ -49,7 +55,7 @@ void print_val(long v) {
         } else {
             printf("'()");
         }
-    } else if ((v & BITMASK) == T_FUN) {
+    } else if (IS_FUN(v)) {
         closure *c = (closure *) (v & ~T_FUN);
         printf("FUN<code: %p nargs: %d frees: ", c->code, c->nargs);
         print_val((long) c->frees);

@@ -42,13 +42,6 @@ long vint(long v) {
     return v << NSHIFT;
 }
 
-long pop() {
-    assert(S != NIL);
-    long v = car_(S);
-    S = (pair) cdr_(S);
-    return (long) v;
-}
-
 long popi() {
     assert(C != NIL);
     long v = car_(C);
@@ -56,8 +49,26 @@ long popi() {
     return (long) v;
 }
 
+long pop() {
+    assert(S != NIL);
+    long v = car_(S);
+    S = (pair) cdr_(S);
+    return (long) v;
+}
+
 void push(long v) {
     S = cons_(v, (long) S);
+}
+
+void pushd(long v) {
+    D = cons_(v, (long) D);
+}
+
+long popd() {
+    assert(D != NIL);
+    long v = car_(D);
+    D = (pair) cdr_(D);
+    return (long) v;
 }
 
 int eval() {
@@ -67,7 +78,6 @@ int eval() {
                 push((long) NIL);
                 break;
             case LDC:
-                C = (pair) cdr_(C);
                 push(car_(C));
                 break;
             case LD:
@@ -80,6 +90,24 @@ int eval() {
                     for(p = (pair) car_(E); d-- && p != NIL; p = (pair) cdr_(p));
                     assert(p != NIL); // TODO: throw error
                     push(car_(p));
+                }
+                break;
+            case SEL:
+                {
+                    long c = pop();
+                    pair t = (pair) popi();
+                    pair f = (pair) popi();
+                    pushd((long) C); // save the next instruction stream
+                    if(c != (long) NIL) {
+                        C = t;
+                    } else {
+                        C = f;
+                    }
+                }
+                break;
+            case JOIN:
+                {
+                    C = (pair) popd();
                 }
                 break;
             case CONS:
@@ -96,12 +124,43 @@ int eval() {
 // terser pair generation
 #define P(car, cdr) cons_(car, (long) cdr)
 
-int main() {
+void reset() {
+    S = NIL;
+    E = NIL;
+    C = NIL;
+    D = NIL;
+    puts("");
+}
+
+void t1() {
     E = P((long) P(8, P(1, NIL)), NIL);
-    C = P(LD,
-            P(cons(1, 1),
-                NIL));
+    C = P(LD, P(cons(1, 1), NIL));
     eval();
     print_utlist(S);
+}
+
+void t2() {
+    C = P(LNIL, P(LDC, P(32,
+        P(CONS, NIL))));
+    eval();
+    print_utlist(S);
+}
+
+void t3() {
+    C = P(LDC, P(16, P(SEL,
+                    P((long) P(LDC, P(16, P(JOIN, NIL))),
+                    P((long) P(LNIL, P(JOIN, NIL)),
+                        P(LNIL, NIL))))));
+    eval();
+    print_utlist(S);
+}
+
+int main() {
+    void (*t[])() = {t1, t2, t3};
+    for(int i = 0; i < sizeof(t) / sizeof(void *); i++) {
+        // TODO: add assertions for tests
+        t[i]();
+        reset();
+    }
     return 0;
 }
