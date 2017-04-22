@@ -24,12 +24,12 @@ typedef long *pair;
 #define cdr_(c) ((c)[1])
 
 long car(pair c) {
-    assert((long) c & T_CONS);
+    assert(((long) c & BITMASK) == T_CONS);
     return car_((pair) ((long) c & ~T_CONS));
 }
 
 long cdr(pair c) {
-    assert((long) c & T_CONS);
+    assert(((long) c & BITMASK) == T_CONS);
     return cdr_((pair) ((long) c & ~T_CONS));
 }
 

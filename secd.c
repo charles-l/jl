@@ -34,9 +34,8 @@ pair cons_(long a, long b) {
     return v;
 }
 
-#define TAG_CONS(v) ((long) (v) | T_CONS)
 long cons(long a, long b) {
-    return TAG_CONS(cons_(a, b));
+    return ((long) cons_(a, b)) | T_CONS;
 }
 
 long vint(long v) {
@@ -54,7 +53,7 @@ long popi() {
     assert(C != NIL);
     long v = car_(C);
     C = (pair) cdr_(C);
-    return (long) C;
+    return (long) v;
 }
 
 void push(long v) {
@@ -63,7 +62,7 @@ void push(long v) {
 
 int eval() {
     while(C != (pair) NIL) {
-        switch(car_(C)) {
+        switch(popi()) {
             case LNIL:
                 push((long) NIL);
                 break;
@@ -74,8 +73,9 @@ int eval() {
             case LD:
                 {
                     pair v = (pair) popi();
-                    assert(car_(v) == 1); // TODO: look in surrounding scope
-                    int d = cdr_(v);
+                    assert(car(v) == 1); // TODO: look in surrounding scope
+                    assert(E != NIL);
+                    int d = cdr(v) - 1;
                     pair p;
                     for(p = (pair) car_(E); d-- && p != NIL; p = (pair) cdr_(p));
                     assert(p != NIL); // TODO: throw error
@@ -90,7 +90,6 @@ int eval() {
                 }
                 break;
         }
-        popi();
     }
 }
 
@@ -98,18 +97,10 @@ int eval() {
 #define P(car, cdr) cons_(car, (long) cdr)
 
 int main() {
-    C = P(LNIL,
-            P(LDC,
-                P(24,
-                    P(CONS,
-                        P(LNIL,
-                            NIL)))));
-    /*C = P(LNIL,
-            P(LNIL,
-                P(LNIL,
-                    P(LNIL,
-                        P(LNIL,
-                            NIL)))));*/
+    E = P((long) P(8, P(1, NIL)), NIL);
+    C = P(LD,
+            P(cons(1, 1),
+                NIL));
     eval();
     print_utlist(S);
     return 0;
