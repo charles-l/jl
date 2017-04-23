@@ -95,9 +95,11 @@ int eval() {
                     assert(E != NIL);
                     int d = cdr_(v) - 1;
                     pair p;
-                    for(p = (pair) car_(E); d-- && p != NIL; p = (pair) cdr_(p));
+                    for(p = (pair) car_(E);
+                            d-- && p != NIL;
+                            p = (pair) cdr(p));
                     assert(p != NIL); // TODO: throw error
-                    push(car_(p));
+                    push(car(p));
                 }
                 break;
             case SEL:
@@ -121,14 +123,15 @@ int eval() {
                 break;
             case AP:
                 {
-                    pair a = (pair) pop(S);
                     pair c = (pair) pop(S);
+                    pair a = (pair) pop(S);
                     assert(IS_FUN(c));
                     c = (pair) ((long) c & ~T_FUN);
                     pushd(S);
                     pushd(E);
                     pushd(C);
-                    E = cons_(cdr_(c), (long) E);
+                    S = NIL;
+                    E = cons_((long) a, cdr_(c));
                     C = (pair) car_(c);
                 }
                 break;
@@ -139,6 +142,23 @@ int eval() {
                     E = popd();
                     S = popd();
                     push(r);
+                }
+                break;
+            case DUM:
+                E = cons_((long) NIL, (long) E);
+                break;
+            case RAP:
+                {
+                    pair c = (pair) pop(S);
+                    pair a = (pair) pop(S);
+                    assert(IS_FUN(c));
+                    c = (pair) ((long) c & ~T_FUN);
+                    pushd(S);
+                    pushd(E);
+                    pushd(C);
+                    S = NIL;
+                    car_(E) = (long) a;
+                    C = (pair) car_(c);
                 }
                 break;
             case CONS:
@@ -181,9 +201,8 @@ void reset() {
 }
 
 void t1() {
-    E = LIST_((long) LIST_(1 << NSHIFT, (long) NIL));
-    C = LIST_(LD, (long) cons_(1, 1),
-              LD, (long) cons_(1, 2));
+    E = LIST_((long) cons(1 << NSHIFT, (long) NIL));
+    C = LIST_(LD, (long) cons_(1, 1));
     eval();
     print_utlist(S);
 }
@@ -214,21 +233,41 @@ void t4() {
 }
 
 void t5() {
-    E = LIST_((long) 24, (long) 32);
+    E = LIST_((long) 24, (long) NIL);
     C = LIST_(
+            LDC, (long) cons(8, (long) cons(16, (long) NIL)),
             LDF, (long) LIST_(
                 LD, (long) cons_(1, 1),
                 LD, (long) cons_(1, 2), RET),
-            LDC, (long) cons(8, (long) cons(16, (long) NIL)),
-            AP, LDC, 16);
+            AP);
+    eval();
+    print_utlist(S);
+}
+
+void t6() {
+    // (def (a) 1) ((lambda (x) (x)) a)
+    C = LIST_(LNIL, LDF, (long) LIST_(LDC, 8, RET), CONS,
+            LDF, (long) LIST_(LNIL, LD, (long) cons_(1, 1), AP, RET), AP);
+    eval();
+    print_utlist(S);
+}
+
+void t7() {
+    // (def (a) a)
+    C = LIST_(DUM,
+            LNIL,
+            LDF, (long) LIST_(LD, (long) cons_(1, 1), RET), CONS,
+            LDF, (long) LIST_(LNIL, LDC, 16, CONS, LD, (long) cons_(1, 1), AP, RET),
+            RAP);
     eval();
     print_utlist(S);
 }
 
 int main() {
-    void (*t[])() = {t1, t2, t3, t4, t5};
+    void (*t[])() = {t1, t2, t3, t4, t5, t6, t7};
     for(int i = 0; i < sizeof(t) / sizeof(void *); i++) {
         // TODO: add assertions for tests
+        printf("%i: ", i + 1);
         t[i]();
         reset();
     }

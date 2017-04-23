@@ -62,10 +62,20 @@ void print_val(long v) {
 
 void print_utlist(pair l) {
     if(l != NIL) {
+        putchar('(');
+        _print_utlist(l);
+        putchar(')');
+    } else {
+        printf("'()");
+    }
+}
+
+void _print_utlist(pair l) {
+    if(l != NIL) {
         print_val(car_(l));
         if(cdr_(l) != (long) NIL) {
             putchar(' ');
-            print_utlist((pair) cdr_(l));
+            _print_utlist((pair) cdr_(l));
         }
     } else {
         printf("'()");
