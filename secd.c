@@ -106,8 +106,11 @@ int eval() {
                 }
                 break;
             case JOIN:
+                C = (pair) popd();
+                break;
+            case LDF:
                 {
-                    C = (pair) popd();
+                    push(((long) cons_(car_(E), popi())) | T_FUN);
                 }
                 break;
             case CONS:
@@ -171,9 +174,11 @@ void t3() {
 }
 
 void t4() {
-    C = LIST(LDC, 16, SEL,
-            (long) LIST(LDC, 16, JOIN),
-            (long) LIST(LNIL, JOIN));
+    E = LIST((long) NIL, (long) NIL);
+    C = LIST(LDF,
+            (long) LIST(
+                LD, (long) LIST(1, 1),
+                LD, (long) LIST(1, 2)));
     eval();
     print_utlist(S);
 }
