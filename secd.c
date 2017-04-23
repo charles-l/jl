@@ -124,6 +124,22 @@ int eval() {
 // terser pair generation
 #define P(car, cdr) cons_(car, (long) cdr)
 
+#define NUMARGS(...)  (sizeof((long[]){__VA_ARGS__})/sizeof(long))
+#define LIST(...) (list(NUMARGS(__VA_ARGS__), __VA_ARGS__))
+
+pair list(int n, ...) {
+    va_list l;
+    va_start(l, n);
+    pair p = cons_(va_arg(l, long), (long) NIL);
+    pair c = p;
+    for(int i = 0; i < (n - 1); i++) {
+        cdr_(c) = (long) cons_(va_arg(l, long), (long) NIL);
+        c = (pair) cdr_(c);
+    }
+    va_end(l);
+    return p;
+}
+
 void reset() {
     S = NIL;
     E = NIL;
@@ -133,30 +149,37 @@ void reset() {
 }
 
 void t1() {
-    E = P((long) P(8, P(1, NIL)), NIL);
-    C = P(LD, P(cons(1, 1), NIL));
+    E = LIST((long) LIST(8, 1));
+    C = LIST(LD, cons(1, 1));
     eval();
     print_utlist(S);
 }
 
 void t2() {
-    C = P(LNIL, P(LDC, P(32,
-        P(CONS, NIL))));
+    C = LIST(LNIL, LDC, 32, CONS);
     eval();
     print_utlist(S);
 }
 
 void t3() {
-    C = P(LDC, P(16, P(SEL,
-                    P((long) P(LDC, P(16, P(JOIN, NIL))),
-                    P((long) P(LNIL, P(JOIN, NIL)),
-                        P(LNIL, NIL))))));
+    C = LIST(LDC, 16,
+            SEL,
+                (long) LIST(LDC, 16, JOIN),
+                (long) LIST(LNIL, JOIN), LNIL);
+    eval();
+    print_utlist(S);
+}
+
+void t4() {
+    C = LIST(LDC, 16, SEL,
+            (long) LIST(LDC, 16, JOIN),
+            (long) LIST(LNIL, JOIN));
     eval();
     print_utlist(S);
 }
 
 int main() {
-    void (*t[])() = {t1, t2, t3};
+    void (*t[])() = {t1, t2, t3, t4};
     for(int i = 0; i < sizeof(t) / sizeof(void *); i++) {
         // TODO: add assertions for tests
         t[i]();
