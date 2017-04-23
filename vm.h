@@ -52,8 +52,8 @@ void print_val(long v) {
     } else if (IS_FUN(v)) {
         pair c = (pair) ((long) v & ~T_FUN);
         printf("FUN<frees: ");
-        print_val((long) car_(c));
-        printf(" code: %p", cdr_(c));
+        print_utlist((long) cdr_(c));
+        printf(" code: %p", car_(c));
         putchar('>');
     } else {
         printf("?<0x%x>", v);

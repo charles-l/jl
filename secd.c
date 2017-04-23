@@ -4,6 +4,14 @@
 #include <stdarg.h>
 #include "vm.h"
 
+// notes
+// - this is an SECD machine
+//   - S: holds current stack state
+//   - E: holds the environment
+//   - C: holds the control (i.e. instruction pointer)
+//   - D: holds the dump (basically holds previous state info that will be restored)
+// - functions ending in an underscore are return untagged/expect untagged arguments
+
 // registers
 static pair S = NIL; // stack pointer
 static pair E = NIL; // env pointer
@@ -34,8 +42,8 @@ pair cons_(long a, long b) {
     return v;
 }
 
-long cons(long a, long b) {
-    return ((long) cons_(a, b)) | T_CONS;
+pair cons(long a, long b) {
+    return (pair) (((long) cons_(a, b)) | T_CONS);
 }
 
 long vint(long v) {
@@ -60,15 +68,15 @@ void push(long v) {
     S = cons_(v, (long) S);
 }
 
-void pushd(long v) {
-    D = cons_(v, (long) D);
+void pushd(pair v) {
+    D = cons_((long) v, (long) D);
 }
 
-long popd() {
+pair popd() {
     assert(D != NIL);
     long v = car_(D);
     D = (pair) cdr_(D);
-    return (long) v;
+    return (pair) v;
 }
 
 int eval() {
@@ -83,9 +91,9 @@ int eval() {
             case LD:
                 {
                     pair v = (pair) popi();
-                    assert(car(v) == 1); // TODO: look in surrounding scope
+                    assert(car_(v) == 1); // TODO: look in surrounding scope
                     assert(E != NIL);
-                    int d = cdr(v) - 1;
+                    int d = cdr_(v) - 1;
                     pair p;
                     for(p = (pair) car_(E); d-- && p != NIL; p = (pair) cdr_(p));
                     assert(p != NIL); // TODO: throw error
@@ -97,7 +105,7 @@ int eval() {
                     long c = pop();
                     pair t = (pair) popi();
                     pair f = (pair) popi();
-                    pushd((long) C); // save the next instruction stream
+                    pushd(C); // save the next instruction stream
                     if(c != (long) NIL) {
                         C = t;
                     } else {
@@ -109,8 +117,28 @@ int eval() {
                 C = (pair) popd();
                 break;
             case LDF:
+                push(((long) cons_(popi(), (long) E)) | T_FUN);
+                break;
+            case AP:
                 {
-                    push(((long) cons_(car_(E), popi())) | T_FUN);
+                    pair a = (pair) pop(S);
+                    pair c = (pair) pop(S);
+                    assert(IS_FUN(c));
+                    c = (pair) ((long) c & ~T_FUN);
+                    pushd(S);
+                    pushd(E);
+                    pushd(C);
+                    E = cons_(cdr_(c), (long) E);
+                    C = (pair) car_(c);
+                }
+                break;
+            case RET:
+                {
+                    long r = pop();
+                    C = popd();
+                    E = popd();
+                    S = popd();
+                    push(r);
                 }
                 break;
             case CONS:
@@ -128,9 +156,10 @@ int eval() {
 #define P(car, cdr) cons_(car, (long) cdr)
 
 #define NUMARGS(...)  (sizeof((long[]){__VA_ARGS__})/sizeof(long))
-#define LIST(...) (list(NUMARGS(__VA_ARGS__), __VA_ARGS__))
+#define LIST_(...) (list_(NUMARGS(__VA_ARGS__), __VA_ARGS__))
 
-pair list(int n, ...) {
+// list constructor accepting whatever cons we want to use (tagged, untagged, reversed, etc)
+pair list_(int n, ...) {
     va_list l;
     va_start(l, n);
     pair p = cons_(va_arg(l, long), (long) NIL);
@@ -152,39 +181,52 @@ void reset() {
 }
 
 void t1() {
-    E = LIST((long) LIST(8, 1));
-    C = LIST(LD, cons(1, 1));
+    E = LIST_((long) LIST_(1 << NSHIFT, (long) NIL));
+    C = LIST_(LD, (long) cons_(1, 1),
+              LD, (long) cons_(1, 2));
     eval();
     print_utlist(S);
 }
 
 void t2() {
-    C = LIST(LNIL, LDC, 32, CONS);
+    C = LIST_(LNIL, LDC, 32, CONS);
     eval();
     print_utlist(S);
 }
 
 void t3() {
-    C = LIST(LDC, 16,
+    C = LIST_(LDC, 16,
             SEL,
-                (long) LIST(LDC, 16, JOIN),
-                (long) LIST(LNIL, JOIN), LNIL);
+                (long) LIST_(LDC, 16, JOIN),
+                (long) LIST_(LNIL, JOIN), LNIL);
     eval();
     print_utlist(S);
 }
 
 void t4() {
-    E = LIST((long) NIL, (long) NIL);
-    C = LIST(LDF,
-            (long) LIST(
-                LD, (long) LIST(1, 1),
-                LD, (long) LIST(1, 2)));
+    E = LIST_((long) NIL, (long) NIL);
+    C = LIST_(LDF,
+            (long) LIST_(
+                LD, (long) cons_(1, 1),
+                LD, (long) cons_(1, 2), RET));
+    eval();
+    print_utlist(S);
+}
+
+void t5() {
+    E = LIST_((long) 24, (long) 32);
+    C = LIST_(
+            LDF, (long) LIST_(
+                LD, (long) cons_(1, 1),
+                LD, (long) cons_(1, 2), RET),
+            LDC, (long) cons(8, (long) cons(16, (long) NIL)),
+            AP, LDC, 16);
     eval();
     print_utlist(S);
 }
 
 int main() {
-    void (*t[])() = {t1, t2, t3, t4};
+    void (*t[])() = {t1, t2, t3, t4, t5};
     for(int i = 0; i < sizeof(t) / sizeof(void *); i++) {
         // TODO: add assertions for tests
         t[i]();
