@@ -50,7 +50,7 @@ typedef enum {
     MUL,
     DIV,
     REM,
-    LEQ,
+    LT,
     CAP,  // c function apply
 } op;
 
@@ -292,6 +292,14 @@ int eval() {
                     push(((a >> NSHIFT) % (b >> NSHIFT)) << NSHIFT);
                 }
                 break;
+            case LT:
+                {
+                    long b = pop();
+                    long a = pop();
+                    assert(IS_INT(a) && IS_INT(b));
+                    push((a < b ? (long) sym("t") : (long) NIL));
+                }
+                break;
             case CAP:
                 // for now this is going to be a direct function pointer, but in the future
                 // do some kind of proper reflection to get at the pointer, or pass it
@@ -421,6 +429,7 @@ void t8() {
               LDC, 32, LDC, 16, MUL,
               LDC, 40, LDC, 16, DIV,
               LDC, 40, LDC, 16, REM,
+              LDC, 8, LDC, 32, LT,
               CAP, (long) &tprint);
     eval();
     print_utlist(S);
