@@ -7,10 +7,11 @@
 #define BITMASK 0b111
 
 typedef enum {
-    T_INT = 0x0,
+    T_INT  = 0x0,
     T_CONS = 0x1,
-    T_FUN = 0x2,
-    T_SYM = 0x3,
+    T_FUN  = 0x2,
+    T_CFUN = 0x3,
+    T_SYM  = 0x4,
 } type;
 
 typedef long *pair;

@@ -9,6 +9,9 @@
 // TODO:
 //   - get rid of untagged cons, LIST, etc. It's stupid.
 //   - decide whether or not there needs to be a special value for true
+//   - bignum
+//   - floating point
+//   - errors
 
 // notes
 // - this is an SECD machine
@@ -289,6 +292,16 @@ int eval() {
                     push(((a >> NSHIFT) % (b >> NSHIFT)) << NSHIFT);
                 }
                 break;
+            case CAP:
+                // for now this is going to be a direct function pointer, but in the future
+                // do some kind of proper reflection to get at the pointer, or pass it
+                // around in a lambda of some sort
+                {
+                    long (*f)(long) = (long (*) (long)) popi();
+                    long a = pop();
+                    push(f(a));
+                }
+                break;
         }
     }
 }
@@ -385,6 +398,11 @@ void t7() {
     print_utlist(S);
 }
 
+long tprint(long i) {
+    printf("0x%x\n", i);
+    return i;
+}
+
 void t8() {
     E = LIST_(
             (long) cons(8, (long) cons(16, (long) NIL)),
@@ -402,13 +420,15 @@ void t8() {
               LDC, 32, LDC, 8, SUB,
               LDC, 32, LDC, 16, MUL,
               LDC, 40, LDC, 16, DIV,
-              LDC, 40, LDC, 16, REM);
+              LDC, 40, LDC, 16, REM,
+              CAP, (long) &tprint);
     eval();
     print_utlist(S);
 }
 
 void t9() {
-    // (def (a) (a))
+    // (def (a)
+    //  (a))
     C = LIST_(DUM,
             LNIL,
             LDF, (long) LIST_(LNIL, LD, (long) cons_(1, 0), TAP),
