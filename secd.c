@@ -201,6 +201,18 @@ int eval() {
                     push((long) cons(a, b));
                 }
                 break;
+            case CAR:
+                {
+                    pair a = (pair) pop();
+                    push((long) car(a));
+                }
+                break;
+            case CDR:
+                {
+                    pair a = (pair) pop();
+                    push((long) cdr(a));
+                }
+                break;
         }
     }
 }
@@ -304,8 +316,9 @@ void t8() {
             );
     C = LIST_(LD, (long) cons_(0, 0),
               LD, (long) cons_(0, 1),
-              LD, (long) cons_(1, 0),
-              LD, (long) cons_(1, 1));
+              LNIL,
+              LD, (long) cons_(1, 0), CONS,
+              LD, (long) cons_(1, 1), CONS, CDR, CAR);
     eval();
     print_utlist(S);
 }
