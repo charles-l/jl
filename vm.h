@@ -10,6 +10,7 @@ typedef enum {
     T_INT = 0x0,
     T_CONS = 0x1,
     T_FUN = 0x2,
+    T_SYM = 0x3,
 } type;
 
 typedef long *pair;
@@ -21,6 +22,7 @@ typedef long *pair;
 #define CHECK_TAG(t, v) ((((long) (v)) & BITMASK) == (t))
 #define IS_CONS(v) CHECK_TAG(T_CONS, (v))
 #define IS_INT(v) CHECK_TAG(T_INT, (v))
+#define IS_SYM(v) CHECK_TAG(T_SYM, (v))
 #define IS_FUN(v) CHECK_TAG(T_FUN, (v))
 
 long car(pair c) {
@@ -36,8 +38,8 @@ long cdr(pair c) {
 void print_val(long v) {
     if(IS_INT(v)) {
         printf("INT<%d>", v >> NSHIFT);
-    //} else if ((v & BITMASK) == T_BOOL) {
-        //printf((v >> 3) == 1 ? "#t" : "nil");
+    } else if ((v & BITMASK) == T_SYM) {
+        printf("SYM<%s>", v - T_SYM);
     } else if (IS_CONS(v)) {
         pair p = (pair) v;
         if(p != NIL) {

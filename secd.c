@@ -3,10 +3,12 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <execinfo.h>
+#include <string.h>
 #include "vm.h"
 
 // TODO:
 //   - get rid of untagged cons, LIST, etc. It's stupid.
+//   - decide whether or not there needs to be a special value for true
 
 // notes
 // - this is an SECD machine
@@ -21,6 +23,7 @@ static pair S = NIL; // stack pointer
 static pair E = NIL; // env pointer
 static pair C = NIL; // control/instruction pointer
 static pair D = NIL; // dump pointer
+static long TRUE;
 
 typedef enum {
     LNIL, // push nil
@@ -36,7 +39,7 @@ typedef enum {
     DUM,  // push empty list in front of env list (used with RAP)
     CAR,
     CDR,
-    ATOM,
+    ATOM, // atom? func
     CONS,
     EQ,
     ADD,
@@ -57,6 +60,18 @@ pair cons_(long a, long b) {
 
 pair cons(long a, long b) {
     return (pair) (((long) cons_(a, b)) | T_CONS);
+}
+
+long sym(char *s) {
+    static pair symbols = NULL;
+    for(pair p = symbols; p != NULL; p = (pair) cdr(p)) {
+        if(strcmp((char *) car(p), s) == 0) {
+            return (car(p) | T_SYM);
+        }
+    }
+    char *r = strdup(s);
+    symbols = cons((long) r, (long) symbols);
+    return ((long) r | T_SYM);
 }
 
 long vint(long v) {
@@ -213,6 +228,26 @@ int eval() {
                     push((long) cdr(a));
                 }
                 break;
+            case ATOM:
+                {
+                    long c = pop();
+                    if(IS_INT(c) || IS_INT(c)) {
+                        push(sym("t"));
+                    } else {
+                        push((long) NIL);
+                    }
+                }
+                break;
+            case EQ:
+                {
+                    long a = pop();
+                    long b = pop();
+                    if(a == b) {
+                        push(sym("t"));
+                    } else {
+                        push((long) NIL);
+                    }
+                }
         }
     }
 }
@@ -318,7 +353,10 @@ void t8() {
               LD, (long) cons_(0, 1),
               LNIL,
               LD, (long) cons_(1, 0), CONS,
-              LD, (long) cons_(1, 1), CONS, CDR, CAR);
+              LD, (long) cons_(1, 1), CONS, CDR, CAR,
+              LDC, sym("hi"),
+              LDC, sym("hi"),
+              EQ);
     eval();
     print_utlist(S);
 }
@@ -335,7 +373,7 @@ void t9() {
 }
 
 int main() {
-    void (*t[])() = {t1, t2, t3, t4, t5, t6, t7, t8, t9};
+    void (*t[])() = {t1, t2, t3, t4, t5, t6, t7, t8};
     for(int i = 0; i < sizeof(t) / sizeof(void *); i++) {
         // TODO: add assertions for tests
         printf("%i: ", i + 1);
