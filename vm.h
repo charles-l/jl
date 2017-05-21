@@ -1,5 +1,6 @@
-#ifndef OPS_H
-#define OPS_H
+#ifndef VM_H
+#define VM_H
+#include <assert.h>
 
 #define NSHIFT 3
 #define NIL ((pair) 0x1)
@@ -13,6 +14,32 @@ typedef enum {
     T_CFUN = 0x3,
     T_SYM  = 0x4,
 } type;
+
+typedef enum {
+    LNIL, // push nil
+    LDC,  // push a constant
+    LD,   // push value of variable onto stack
+    SEL,  // selection statement
+    JOIN, // pops from D and makes new value of C
+    LDF,  // constructs a closure (env . function)
+    AP,   // pops closure and parameter list to apply function
+    TAP,  // tail apply (for proper tail-recursion)
+    RAP,  // same as AP, but replaces a dummy env with current one for tail calls
+    RET,  // pops return value from stack, restores S E C from dump
+    DUM,  // push empty list in front of env list (used with RAP)
+    CAR,
+    CDR,
+    ATOM, // atom? func
+    CONS,
+    EQ,
+    ADD,
+    SUB,
+    MUL,
+    DIV,
+    REM,
+    LT,
+    CAP,  // c function apply
+} op;
 
 typedef long *pair;
 
@@ -36,52 +63,4 @@ long cdr(pair c) {
     return cdr_(UNTAGC(c));
 }
 
-void print_val(long v) {
-    if(IS_INT(v)) {
-        printf("INT<%d>", v >> NSHIFT);
-    } else if ((v & BITMASK) == T_SYM) {
-        printf("SYM<%s>", v - T_SYM);
-    } else if (IS_CONS(v)) {
-        pair p = (pair) v;
-        if(p != NIL) {
-            printf("(");
-            print_val(car(p));
-            printf(" . ");
-            print_val(cdr(p));
-            printf(")");
-        } else {
-            printf("'()");
-        }
-    } else if (IS_FUN(v)) {
-        pair c = (pair) ((long) v & ~T_FUN);
-        printf("FUN<frees: ");
-        print_utlist((long) cdr_(c));
-        printf(" code: %p", car_(c));
-        putchar('>');
-    } else {
-        printf("?<0x%x>", v);
-    }
-}
-
-void print_utlist(pair l) {
-    if(l != NIL) {
-        putchar('(');
-        _print_utlist(l);
-        putchar(')');
-    } else {
-        printf("'()");
-    }
-}
-
-void _print_utlist(pair l) {
-    if(l != NIL) {
-        print_val(car_(l));
-        if(cdr_(l) != (long) NIL) {
-            putchar(' ');
-            _print_utlist((pair) cdr_(l));
-        }
-    } else {
-        printf("'()");
-    }
-}
-#endif // OPS_H
+#endif // VM_H
