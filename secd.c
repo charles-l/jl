@@ -248,6 +248,47 @@ int eval() {
                         push((long) NIL);
                     }
                 }
+                break;
+            case ADD:
+                {
+                    long b = pop();
+                    long a = pop();
+                    assert(IS_INT(a) && IS_INT(b));
+                    push(a + b);
+                }
+                break;
+            case SUB:
+                {
+                    long b = pop();
+                    long a = pop();
+                    assert(IS_INT(a) && IS_INT(b));
+                    push(a - b);
+                }
+                break;
+            case MUL:
+                {
+                    long b = pop();
+                    long a = pop();
+                    assert(IS_INT(a) && IS_INT(b));
+                    push(((a >> NSHIFT) * (b >> NSHIFT)) << NSHIFT);
+                }
+                break;
+            case DIV:
+                {
+                    long b = pop();
+                    long a = pop();
+                    assert(IS_INT(a) && IS_INT(b));
+                    push(((a >> NSHIFT) / (b >> NSHIFT)) << NSHIFT);
+                }
+                break;
+            case REM:
+                {
+                    long b = pop();
+                    long a = pop();
+                    assert(IS_INT(a) && IS_INT(b));
+                    push(((a >> NSHIFT) % (b >> NSHIFT)) << NSHIFT);
+                }
+                break;
         }
     }
 }
@@ -356,7 +397,12 @@ void t8() {
               LD, (long) cons_(1, 1), CONS, CDR, CAR,
               LDC, sym("hi"),
               LDC, sym("hi"),
-              EQ);
+              EQ,
+              LDC, 8, LDC, 32, ADD,
+              LDC, 32, LDC, 8, SUB,
+              LDC, 32, LDC, 16, MUL,
+              LDC, 40, LDC, 16, DIV,
+              LDC, 40, LDC, 16, REM);
     eval();
     print_utlist(S);
 }
