@@ -83,8 +83,8 @@ void t1() {
 }
 
 void t2() {
-    C = LIST_(LNIL, LDC, 32, CONS);
-    eval();
+    long b[] = {LNIL, LDC, 32, CONS};
+    eval_bytes(b, sizeof(b) / sizeof(long));
     print_utlist(S);
 }
 

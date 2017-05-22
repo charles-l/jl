@@ -54,48 +54,30 @@ long vint(long v) {
     return v << NSHIFT;
 }
 
-long popi() {
-    assert(C != NIL);
-    long v = car_(C);
-    C = (pair) cdr_(C);
+long pop(pair *p) {
+    assert(*p != NIL);
+    long v = car_(*p);
+    *p = (pair) cdr_(*p);
     return (long) v;
 }
 
-long pop() {
-    assert(S != NIL);
-    long v = car_(S);
-    S = (pair) cdr_(S);
-    return (long) v;
-}
-
-void push(long v) {
-    S = cons_(v, (long) S);
-}
-
-void pushd(pair v) {
-    D = cons_((long) v, (long) D);
-}
-
-pair popd() {
-    assert(D != NIL);
-    long v = car_(D);
-    D = (pair) cdr_(D);
-    return (pair) v;
+void push(pair *p, long v) {
+    *p = cons_(v, (long) *p);
 }
 
 int eval() {
     while(C != (pair) NIL) {
-        switch(popi()) {
+        switch(pop(&C)) {
             case LNIL:
-                push((long) NIL);
+                push(&S, (long) NIL);
                 break;
             case LDC:
-                push(popi(C));
+                push(&S, pop(&C));
                 break;
             case LD:
                 {
                     assert(E != NIL);
-                    pair v = (pair) popi();
+                    pair v = (pair) pop(&C);
                     pair s = E;
                     for(int o = car_(v);
                             o--;
@@ -106,39 +88,35 @@ int eval() {
                             s = (pair) cdr(s));
 
                     assert(s != NIL && "Failed to find variable");
-                    push(car(s));
+                    push(&S, car(s));
                 }
                 break;
             case SEL:
                 {
-                    long c = pop();
-                    pair t = (pair) popi();
-                    pair f = (pair) popi();
-                    pushd(C); // save the next instruction stream
-                    if(c != (long) NIL) {
-                        C = t;
-                    } else {
-                        C = f;
-                    }
+                    long c = pop(&S);
+                    pair t = (pair) pop(&C);
+                    pair f = (pair) pop(&C);
+                    push(&D, (long) C); // save the next instruction stream
+                    C = ((c != (long) NIL) ? t : f);
                 }
                 break;
             case JOIN:
-                C = (pair) popd();
+                C = (pair) pop(&D);
                 break;
             case LDF:
-                push(((long) cons_(popi(), (long) E)) | T_FUN);
+                push(&S, ((long) cons_(pop(&C), (long) E)) | T_FUN);
                 break;
             case AP:
                 {
-                    pair c = (pair) pop();
+                    pair c = (pair) pop(&S);
                     assert(IS_FUN(c));
                     c = (pair) ((long) c & ~T_FUN);
 
-                    pair a = (pair) pop();
+                    pair a = (pair) pop(&S);
 
-                    pushd(S);
-                    pushd(E);
-                    pushd(C);
+                    push(&D, (long) S);
+                    push(&D, (long) E);
+                    push(&D, (long) C);
                     S = NIL;
                     E = cons_((long) a, cdr_(c));
                     C = (pair) car_(c);
@@ -146,11 +124,11 @@ int eval() {
                 break;
             case TAP:
                 {
-                    pair c = (pair) pop();
+                    pair c = (pair) pop(&S);
                     assert(IS_FUN(c));
                     c = (pair) ((long) c & ~T_FUN);
 
-                    pair a = (pair) pop();
+                    pair a = (pair) pop(&S);
 
                     S = NIL;
                     E = cons_((long) a, cdr_(c));
@@ -159,14 +137,14 @@ int eval() {
                 break;
             case RAP:
                 {
-                    pair c = (pair) pop();
+                    pair c = (pair) pop(&S);
                     assert(IS_FUN(c));
 
-                    pair a = (pair) pop();
+                    pair a = (pair) pop(&S);
                     c = (pair) ((long) c & ~T_FUN);
-                    pushd(S);
-                    pushd(E);
-                    pushd(C);
+                    push(&D, (long) S);
+                    push(&D, (long) E);
+                    push(&D, (long) C);
                     S = NIL;
                     car_(E) = (long) a;
                     C = (pair) car_(c);
@@ -174,11 +152,11 @@ int eval() {
                 break;
             case RET:
                 {
-                    long r = pop();
-                    C = popd();
-                    E = popd();
-                    S = popd();
-                    push(r);
+                    long r = pop(&S);
+                    C = (pair) pop(&D);
+                    E = (pair) pop(&D);
+                    S = (pair) pop(&D);
+                    push(&S, r);
                 }
                 break;
             case DUM:
@@ -187,90 +165,82 @@ int eval() {
                 break;
             case CONS:
                 {
-                    long a = pop();
-                    long b = pop();
-                    push((long) cons(a, b));
+                    long a = pop(&S);
+                    long b = pop(&S);
+                    push(&S, (long) cons(a, b));
                 }
                 break;
             case CAR:
                 {
-                    pair a = (pair) pop();
-                    push((long) car(a));
+                    pair a = (pair) pop(&S);
+                    push(&S, (long) car(a));
                 }
                 break;
             case CDR:
                 {
-                    pair a = (pair) pop();
-                    push((long) cdr(a));
+                    pair a = (pair) pop(&S);
+                    push(&S, (long) cdr(a));
                 }
                 break;
             case ATOM:
                 {
-                    long c = pop();
-                    if(IS_INT(c) || IS_INT(c)) {
-                        push(sym("t"));
-                    } else {
-                        push((long) NIL);
-                    }
+                    long c = pop(&S);
+                    push(&S, IS_INT(c) || IS_SYM(c) ? sym("t") : (long) NIL);
                 }
                 break;
             case EQ:
                 {
-                    long a = pop();
-                    long b = pop();
-                    if(a == b) {
-                        push(sym("t"));
-                    } else {
-                        push((long) NIL);
-                    }
+                    long a = pop(&S);
+                    long b = pop(&S);
+                    push(&S, a == b ? sym("t") : (long) NIL);
                 }
                 break;
             case ADD:
                 {
-                    long b = pop();
-                    long a = pop();
+                    long b = pop(&S);
+                    long a = pop(&S);
                     assert(IS_INT(a) && IS_INT(b));
-                    push(a + b);
+                    push(&S, a + b);
                 }
                 break;
             case SUB:
                 {
-                    long b = pop();
-                    long a = pop();
+                    long b = pop(&S);
+                    long a = pop(&S);
                     assert(IS_INT(a) && IS_INT(b));
-                    push(a - b);
+                    push(&S, a - b);
                 }
                 break;
             case MUL:
                 {
-                    long b = pop();
-                    long a = pop();
+                    long b = pop(&S);
+                    long a = pop(&S);
                     assert(IS_INT(a) && IS_INT(b));
-                    push(((a >> NSHIFT) * (b >> NSHIFT)) << NSHIFT);
+                    push(&S, ((a >> NSHIFT) * (b >> NSHIFT)) << NSHIFT);
                 }
                 break;
             case DIV:
                 {
-                    long b = pop();
-                    long a = pop();
+                    long b = pop(&S);
+                    long a = pop(&S);
                     assert(IS_INT(a) && IS_INT(b));
-                    push(((a >> NSHIFT) / (b >> NSHIFT)) << NSHIFT);
+                    push(&S, ((a >> NSHIFT) / (b >> NSHIFT)) << NSHIFT);
                 }
                 break;
             case REM:
                 {
-                    long b = pop();
-                    long a = pop();
+                    long b = pop(&S);
+                    long a = pop(&S);
                     assert(IS_INT(a) && IS_INT(b));
-                    push(((a >> NSHIFT) % (b >> NSHIFT)) << NSHIFT);
+                    push(&S, ((a >> NSHIFT) % (b >> NSHIFT)) << NSHIFT);
                 }
                 break;
             case LT:
                 {
-                    long b = pop();
-                    long a = pop();
+                    long b = pop(&S);
+                    long a = pop(&S);
                     assert(IS_INT(a) && IS_INT(b));
-                    push((a < b ? (long) sym("t") : (long) NIL));
+                    push(&S, (a < b ? (long) sym("t") : (long) NIL));
                 }
                 break;
             case CAP:
@@ -278,11 +248,22 @@ int eval() {
                 // do some kind of proper reflection to get at the pointer, or pass it
                 // around in a lambda of some sort
                 {
-                    long (*f)(long) = (long (*) (long)) popi();
-                    long a = pop();
-                    push(f(a));
+                    long (*f)(long) = (long (*) (long)) pop(&C);
+                    long a = pop(&S);
+                    push(&S, f(a));
                 }
                 break;
         }
     }
+}
+
+void eval_bytes(long *b, size_t n) {
+    S = NIL;
+    E = NIL;
+    C = NIL;
+    D = NIL;
+    for(int i = n - 1; i >= 0; i--) {
+        C = cons_(b[i], (long) C);
+    }
+    eval();
 }
