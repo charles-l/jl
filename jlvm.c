@@ -4,7 +4,7 @@
 #include <stdarg.h>
 #include <execinfo.h>
 #include <string.h>
-#include "vm.h"
+#include "jlvm.h"
 
 // TODO:
 //   - get rid of untagged cons, LIST, etc. It's stupid.

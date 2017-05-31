@@ -1,5 +1,6 @@
-#include "vm.h"
-#include "vm.c"
+#include "test.h"
+#include "jlvm.h"
+#include "jlvm.c"
 
 #define NUMARGS(...)  (sizeof((long[]){__VA_ARGS__})/sizeof(long))
 #define LIST_(...) (list_(NUMARGS(__VA_ARGS__), __VA_ARGS__))
@@ -72,10 +73,10 @@ void reset() {
     E = NIL;
     C = NIL;
     D = NIL;
-    puts("");
 }
 
 void t1() {
+    //liste(LIST_(1, 2, 3), LIST_(1, 2, 3));
     E = LIST_((long) cons(1 << NSHIFT, (long) NIL));
     C = LIST_(LD, (long) cons_(0, 0));
     eval();
@@ -180,13 +181,17 @@ void t9() {
     print_utlist(S);
 }
 
-int main() {
-    void (*t[])() = {t1, t2, t3, t4, t5, t6, t7, t8};
-    for(int i = 0; i < sizeof(t) / sizeof(void *); i++) {
-        // TODO: add assertions for tests
-        printf("%i: ", i + 1);
-        t[i]();
-        reset();
-    }
-    return 0;
-}
+#define CLEAN_TEST(tt) {reset(); TEST(tt)};
+
+//TODO: assert stuff
+BEGIN
+CLEAN_TEST(t1)
+CLEAN_TEST(t2)
+CLEAN_TEST(t3)
+CLEAN_TEST(t4)
+CLEAN_TEST(t5)
+CLEAN_TEST(t6)
+CLEAN_TEST(t7)
+CLEAN_TEST(t8)
+//TEST(t9)
+END

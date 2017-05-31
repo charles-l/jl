@@ -1,5 +1,5 @@
-#ifndef VM_H
-#define VM_H
+#ifndef JLVM_H
+#define JLVM_H
 #include <assert.h>
 
 #define NSHIFT 3
@@ -63,4 +63,4 @@ long cdr(pair c) {
     return cdr_(UNTAGC(c));
 }
 
-#endif // VM_H
+#endif // JLVM_H
