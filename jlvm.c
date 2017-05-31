@@ -27,15 +27,11 @@ static pair E = NIL; // env pointer
 static pair C = NIL; // control/instruction pointer
 static pair D = NIL; // dump pointer
 
-pair cons_(long a, long b) {
-    pair v = malloc(sizeof(long) * 2);
-    v[0] = a;
-    v[1] = b;
-    return v;
-}
-
 pair cons(long a, long b) {
-    return (pair) (((long) cons_(a, b)) | T_CONS);
+    pair v = (pair) ((long) malloc(sizeof(long) * 2) | T_CONS);
+    car_(v) = a;
+    cdr_(v) = b;
+    return v;
 }
 
 long sym(char *s) {
@@ -56,13 +52,13 @@ long vint(long v) {
 
 long pop(pair *p) {
     assert(*p != NIL);
-    long v = car_(*p);
-    *p = (pair) cdr_(*p);
+    long v = car(*p);
+    *p = (pair) cdr(*p);
     return (long) v;
 }
 
 void push(pair *p, long v) {
-    *p = cons_(v, (long) *p);
+    *p = cons(v, (long) *p);
 }
 
 int eval() {
@@ -79,11 +75,11 @@ int eval() {
                     assert(E != NIL);
                     pair v = (pair) pop(&C);
                     pair s = E;
-                    for(int o = car_(v);
+                    for(int o = car(v);
                             o--;
-                            s = (pair) cdr_(s));
-                    s = (pair) car_(s);
-                    for(int i = cdr_(v);
+                            s = (pair) cdr(s));
+                    s = (pair) car(s);
+                    for(int i = cdr(v);
                             i--;
                             s = (pair) cdr(s));
 
@@ -104,13 +100,13 @@ int eval() {
                 C = (pair) pop(&D);
                 break;
             case LDF:
-                push(&S, ((long) cons_(pop(&C), (long) E)) | T_FUN);
+                push(&S, (long) cons(pop(&C), (long) E) - T_CONS + T_FUN);
                 break;
             case AP:
                 {
                     pair c = (pair) pop(&S);
                     assert(IS_FUN(c));
-                    c = (pair) ((long) c & ~T_FUN);
+                    c = (pair) ((long) c - T_FUN + T_CONS);
 
                     pair a = (pair) pop(&S);
 
@@ -118,21 +114,21 @@ int eval() {
                     push(&D, (long) E);
                     push(&D, (long) C);
                     S = NIL;
-                    E = cons_((long) a, cdr_(c));
-                    C = (pair) car_(c);
+                    E = cons((long) a, cdr(c));
+                    C = (pair) car(c);
                 }
                 break;
             case TAP:
                 {
                     pair c = (pair) pop(&S);
                     assert(IS_FUN(c));
-                    c = (pair) ((long) c & ~T_FUN);
+                    c = (pair) ((long) c - T_FUN) + T_CONS;
 
                     pair a = (pair) pop(&S);
 
                     S = NIL;
-                    E = cons_((long) a, cdr_(c));
-                    C = (pair) car_(c);
+                    E = cons((long) a, cdr(c));
+                    C = (pair) car(c);
                 }
                 break;
             case RAP:
@@ -141,13 +137,13 @@ int eval() {
                     assert(IS_FUN(c));
 
                     pair a = (pair) pop(&S);
-                    c = (pair) ((long) c & ~T_FUN);
+                    c = (pair) ((long) c - T_FUN + T_CONS);
                     push(&D, (long) S);
                     push(&D, (long) E);
                     push(&D, (long) C);
                     S = NIL;
                     car_(E) = (long) a;
-                    C = (pair) car_(c);
+                    C = (pair) car(c);
                 }
                 break;
             case RET:
@@ -161,7 +157,7 @@ int eval() {
                 break;
             case DUM:
                 // TODO: remove NIL + 1 - make it a symbol or something
-                E = cons_((long) NIL + 1, (long) E);
+                E = cons((long) NIL + 1, (long) E);
                 break;
             case CONS:
                 {
@@ -263,7 +259,7 @@ void eval_bytes(long *b, size_t n) {
     C = NIL;
     D = NIL;
     for(int i = n - 1; i >= 0; i--) {
-        C = cons_(b[i], (long) C);
+        C = cons(b[i], (long) C);
     }
     eval();
 }

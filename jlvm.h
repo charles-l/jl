@@ -11,7 +11,7 @@ typedef enum {
     T_INT  = 0x0,
     T_CONS = 0x1,
     T_FUN  = 0x2,
-    T_CFUN = 0x3,
+    T_CFUN = 0x3, // FIXME: remove?
     T_SYM  = 0x4,
 } type;
 
@@ -43,10 +43,9 @@ typedef enum {
 
 typedef long *pair;
 
-#define car_(c) ((c)[0])
-#define cdr_(c) ((c)[1])
+#define car_(c) ((c - T_CONS)[0])
+#define cdr_(c) ((c - T_CONS)[1])
 
-#define UNTAGC(c) ((pair) (((long) (c)) & ~T_CONS))
 #define CHECK_TAG(t, v) ((((long) (v)) & BITMASK) == (t))
 #define IS_CONS(v) CHECK_TAG(T_CONS, (v))
 #define IS_INT(v) CHECK_TAG(T_INT, (v))
@@ -55,12 +54,12 @@ typedef long *pair;
 
 long car(pair c) {
     assert(IS_CONS(c));
-    return car_(UNTAGC(c));
+    return car_(c);
 }
 
 long cdr(pair c) {
     assert(IS_CONS(c));
-    return cdr_(UNTAGC(c));
+    return cdr_(c);
 }
 
 #endif // JLVM_H
