@@ -3,7 +3,28 @@
 #include "jlvm.c"
 
 #define NUMARGS(...)  (sizeof((long[]){__VA_ARGS__})/sizeof(long))
-#define LIST_(...) (list_(NUMARGS(__VA_ARGS__), __VA_ARGS__))
+#define LIST(...) (list_(NUMARGS(__VA_ARGS__), __VA_ARGS__))
+#define I(i) (i << NSHIFT)
+
+int listcmp(pair x, pair y) {
+    for(pair a = (pair) x, b = (pair) y; a != NIL || b != NIL; a = (pair) cdr(a), b = (pair) cdr(b)) {
+        if(IS_CONS(car(a)) && IS_CONS(car(b))) {
+            return listcmp((pair) car(a), (pair) car(b));
+        }
+        if(car(a) != car(b)) {
+            return 1;
+        }
+    }
+    return 0;
+}
+#define listeq(x, y) if (listcmp(x, y) != 0) {\
+    printf("expected: "); \
+    print_val((long) x); \
+    printf("\ngot: "); \
+    print_val((long) y); \
+    printf("\n"); \
+    fail; \
+}
 
 void print_val(long v) {
     if(IS_INT(v)) {
@@ -23,13 +44,11 @@ void print_val(long v) {
         }
     } else if (IS_FUN(v)) {
         pair c = (pair) ((long) v - T_FUN + T_CONS);
-        printf("%d\n", c);
         printf("FUN<frees: ");
         print_val((long) cdr(c));
         printf(" code: %p", car(c));
         putchar('>');
-    } else {
-        printf("?<0x%x>", v);
+    } else { printf("?<0x%x>", v);
     }
 }
 // list constructor accepting whatever cons we want to use (tagged, untagged, reversed, etc)
@@ -54,110 +73,108 @@ void reset() {
 }
 
 void t1() {
-    //liste(LIST_(1, 2, 3), LIST_(1, 2, 3));
-    E = LIST_((long) cons(1 << NSHIFT, (long) NIL));
-    C = LIST_(LD, (long) cons(0, 0));
+    E = LIST((long) cons(I(1), (long) NIL));
+    C = LIST(LD, (long) cons(0, 0));
     eval();
-    print_val(S);
+    listeq(LIST(I(1)), S);
 }
 
 void t2() {
-    long b[] = {LNIL, LDC, 32, CONS};
+    long b[] = {LNIL, LDC, I(4), CONS};
     eval_bytes(b, sizeof(b) / sizeof(long));
-    print_val(S);
+    listeq(LIST((long) LIST(I(4))), S);
 }
 
 void t3() {
-    C = LIST_(LDC, 16,
+    C = LIST(LDC, I(2),
             SEL,
-                (long) LIST_(LDC, 16, JOIN),
-                (long) LIST_(LNIL, JOIN), LNIL);
+            (long) LIST(LDC, I(2), JOIN),
+            (long) LIST(LNIL, JOIN), LNIL);
     eval();
-    print_val(S);
+    listeq(LIST((long) NIL, I(2)), S);
 }
 
 void t4() {
-    E = LIST_((long) NIL, (long) NIL);
-    C = LIST_(LDF,
-            (long) LIST_(
+    E = LIST((long) NIL, (long) NIL);
+    C = LIST(LDF,
+            (long) LIST(
                 LD, (long) cons(0, 0),
                 LD, (long) cons(0, 1), RET));
     eval();
-    print_val(S);
+    assert(IS_FUN(car(S)));
 }
 
 void t5() {
-    E = LIST_((long) 24, (long) NIL);
-    C = LIST_(
-            LDC, (long) cons(8, (long) cons(16, (long) NIL)),
-            LDF, (long) LIST_(
+    E = LIST((long) I(3), (long) NIL);
+    C = LIST(
+            LDC, (long) cons(I(1), (long) cons(I(2), (long) NIL)),
+            LDF, (long) LIST(
                 LD, (long) cons(0, 0),
                 LD, (long) cons(0, 1), RET),
             AP);
     eval();
-    print_val(S);
+    listeq(LIST(I(2)), S);
 }
 
 void t6() {
     // ((lambda (x) (x)) (lambda () 1))
-    C = LIST_(LNIL,
-            LDF, (long) LIST_(LDC, 8, RET), CONS,
-            LDF, (long) LIST_(LNIL, LD, (long) cons(0, 0), AP, RET), AP);
+    C = LIST(LNIL,
+            LDF, (long) LIST(LDC, I(1), RET), CONS,
+            LDF, (long) LIST(LNIL, LD, (long) cons(0, 0), AP, RET), AP);
     eval();
-    print_val(S);
+    listeq(LIST(I(1)), S);
 }
 
 void t7() {
     // (def (a) a)
-    C = LIST_(DUM,
+    C = LIST(DUM,
             LNIL,
-            LDF, (long) LIST_(LD, (long) cons(0, 0), RET), CONS,
-            LDF, (long) LIST_(LNIL, LDC, 16, CONS, LD, (long) cons(0, 0), AP, RET),
+            LDF, (long) LIST(LD, (long) cons(0, 0), RET), CONS,
+            LDF, (long) LIST(LNIL, LDC, I(2), CONS, LD, (long) cons(0, 0), AP, RET),
             RAP);
     eval();
-    print_val(S);
-}
-
-long tprint(long i) {
-    printf("0x%x\n", i);
-    return i;
+    listeq(LIST(I(2)), S);
 }
 
 void t8() {
-    E = LIST_(
-            (long) cons(8, (long) cons(16, (long) NIL)),
-            (long) cons(32, (long) cons(64, (long) NIL))
+    E = LIST(
+            (long) cons(I(1), (long) cons(I(2), (long) NIL)),
+            (long) cons(I(4), (long) cons(I(8), (long) NIL))
             );
-    C = LIST_(LD, (long) cons(0, 0),
-              LD, (long) cons(0, 1),
-              LNIL,
-              LD, (long) cons(1, 0), CONS,
-              LD, (long) cons(1, 1), CONS, CDR, CAR,
-              LDC, sym("hi"),
-              LDC, sym("hi"),
-              EQ,
-              LDC, 8, LDC, 32, ADD,
-              LDC, 32, LDC, 8, SUB,
-              LDC, 32, LDC, 16, MUL,
-              LDC, 40, LDC, 16, DIV,
-              LDC, 40, LDC, 16, REM,
-              LDC, 8, LDC, 32, LT,
-              CAP, (long) &tprint);
+    C = LIST(LD, (long) cons(0, 0),
+            LD, (long) cons(0, 1),
+            LNIL,
+            LD, (long) cons(1, 0), CONS,
+            LD, (long) cons(1, 1), CONS, CDR, CAR,
+            LDC, sym("hi"),
+            LDC, sym("hi"),
+            EQ);
     eval();
-    print_val(S);
+    listeq(LIST(sym("t"), I(4), I(2), I(1)), S);
 }
 
 void t9() {
+    C = LIST(LDC, I(1), LDC, I(2), ADD,
+            LDC, I(5), LDC, I(3), SUB,
+            LDC, I(4), LDC, I(2), MUL,
+            LDC, I(12), LDC, I(2), DIV,
+            LDC, I(12), LDC, I(5), REM,
+            LDC, I(8), LDC, I(32), LT);
+    eval();
+    listeq(LIST(sym("t"), I(2), I(6), I(8), I(2), I(3)), S);
+}
+
+/*void t9() {
     // (def (a)
     //  (a))
-    C = LIST_(DUM,
+    C = LIST(DUM,
             LNIL,
-            LDF, (long) LIST_(LNIL, LD, (long) cons(1, 0), TAP),
+            LDF, (long) LIST(LNIL, LD, (long) cons(1, 0), TAP),
             CONS,
-            LDF, (long) LIST_(LNIL, LD, (long) cons(0, 0), AP), RAP);
+            LDF, (long) LIST(LNIL, LD, (long) cons(0, 0), AP), RAP);
     eval();
-    print_val(S);
-}
+    print_val((long) S);
+}*/
 
 #define CLEAN_TEST(tt) {reset(); TEST(tt)};
 
@@ -171,5 +188,5 @@ CLEAN_TEST(t5)
 CLEAN_TEST(t6)
 CLEAN_TEST(t7)
 CLEAN_TEST(t8)
-//TEST(t9)
+CLEAN_TEST(t9)
 END

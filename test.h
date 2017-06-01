@@ -1,4 +1,4 @@
-/* Taken and adapated from https://github.com/bmateusz/tst/blob/master/test.h
+/* Taken from https://github.com/bmateusz/tst/blob/master/test.h
  *
  * ORIGINAL LICENSE:
  *
@@ -68,7 +68,6 @@ int main(int argc, char *argv[]) {\
 #define streq(x, y) if (strcmp(x, y) != 0) { printf("failed \"%s\" == \"%s\" assertion at %s:%d\n", x, y, __FILE__, __LINE__); RETVAL = 1; return; }
 #define strne(x, y) if (strcmp(x, y) == 0) { printf("failed \"%s\" != \"%s\" assertion at %s:%d\n", x, y, __FILE__, __LINE__); RETVAL = 1; return; }
 #define strin(x, y) if (strstr(x, y) == (void*)0) { printf("failed \"%s\" contains \"%s\" assertion at %s:%d\n", x, y, __FILE__, __LINE__); RETVAL = 1; return; }
-#define liste(x, y) for(long *a = x, b = y; a != NIL || b != NIL; a = cdr_(a), b = cdr_(b)) eq(car_(a), car_(b));
 
 #define eq(x, y) if (x != y) { printf("failed %d == %d assertion at %s:%d\n", x, y, __FILE__, __LINE__); RETVAL = 1; return; }
 #define ne(x, y) if (x == y) { printf("failed %d != %d assertion at %s:%d\n", x, y, __FILE__, __LINE__); RETVAL = 1; return; }
