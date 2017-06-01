@@ -1,0 +1,12 @@
+* bignum
+* floating point
+* JIT? (we want speedz)
+* good low level coding
+    * Probably gonna need structs...
+    * Maybe use Go as inspiration for this?
+        * Allow pointers, but no pointer arithmatic?
+        * Or allow pointer arithmatic, but treat pointers as literal arrays i.e at least do bounds checking?
+    * Optional GC?
+    * Have wrapper to /bin/cc that compiles in place with C source (i.e. `jl compile *.l *.c`)
+* build script dsl
+* OpenGL lib

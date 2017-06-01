@@ -7,10 +7,7 @@
 #include "jlvm.h"
 
 // TODO:
-//   - get rid of untagged cons, LIST, etc. It's stupid.
 //   - decide whether or not there needs to be a special value for true
-//   - bignum
-//   - floating point
 //   - errors
 
 // notes
@@ -67,7 +64,7 @@ int eval() {
             case LNIL:
                 push(&S, (long) NIL);
                 break;
-            case LDC:
+            case LDC: // TODO: split this into multiple instructions (i.e. ld int, ld list, ld str, etc.)
                 push(&S, pop(&C));
                 break;
             case LD:
