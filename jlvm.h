@@ -27,17 +27,17 @@ typedef enum {
     RAP,  // same as AP, but replaces a dummy env with current one for tail calls
     RET,  // pops return value from stack, restores S E C from dump
     DUM,  // push empty list in front of env list (used with RAP)
-    CAR,
-    CDR,
+    CAR,  // cars the top of the stack and pushes it back
+    CDR,  // cdrs the top of the stack and pushes it back
     ATOM, // atom? func
-    CONS,
-    EQ,
-    ADD,
-    SUB,
-    MUL,
-    DIV,
-    REM,
-    LT,
+    CONS, // conses top two stack elements
+    EQ,   // checks equality of top two stack elements
+    ADD,  // adds top two stack elements
+    SUB,  // subs top two stack elements
+    MUL,  // multiplies top two stack elements
+    DIV,  // divides top two stack elements
+    REM,  // calculates remainder of top two stack elements
+    LT,   // determines whether second stack element is less than top element
     CAP,  // c function apply
 } op;
 
