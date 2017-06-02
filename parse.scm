@@ -1,4 +1,4 @@
-(use srfi-1 matchable)
+(use srfi-1 matchable holes)
 
 (define op
   (let ((ops '(LNIL
@@ -25,23 +25,45 @@
                 LT
                 CAP)))
     (lambda (o)
-      (list-index (cut eq? o <>) ops))))
+      (list-index (@> eq? o) ops))))
 
-(define (parse e)
+(define (add-to-env env new-vars)
+  (cons new-vars env))
+
+(define (ensure! x . msg)
+  (if x
+    x
+    (error (apply conc msg))))
+
+(define (lookup env name)
+  (cons 0 (ensure! (list-index (@> eq? name) (car env))
+                               "lookup failed to find variable " name)))
+
+(define (parse e env)
   (match e
-         (('if c t f)            `(,@(parse c) SEL (,@(parse t) JOIN) (,@(parse f) JOIN)))
-         (('+ a b)                `(,@(parse b) ,@(parse a) ADD))
-         (('- a b)                `(,@(parse b) ,@(parse a) SUB))
-         (('* a b)                `(,@(parse b) ,@(parse a) MUL))
-         (('/ a b)                `(,@(parse b) ,@(parse a) DIV))
-         (('< a b)                `(,@(parse b) ,@(parse a) LT))
-         ((? integer? i)         `(LDC ,(arithmetic-shift i 3)))
-         ((? symbol? s)          `(LDC ,(symbol->string s)))
-         ((? pair? i)            `(,@(parse (cdr i)) ,@(parse (car i)) CONS))
-         (()                     `(LNIL))))
+         (('if c t f)               `(,@(parse c env) SEL (,@(parse t env) JOIN) (,@(parse f env) JOIN)))
+         (('lambda (a ...) b ...)   `(LDF ,@(map (@< parse (add-to-env env a)) b)))
+         (('quote s)                `(LDC ,s))
+         (('cons a b)               `(,@(parse b env) ,@(parse a env) CONS))
+         (('+ a b)                  `(,@(parse b env) ,@(parse a env) ADD))
+         (('- a b)                  `(,@(parse b env) ,@(parse a env) SUB))
+         (('* a b)                  `(,@(parse b env) ,@(parse a env) MUL))
+         (('/ a b)                  `(,@(parse b env) ,@(parse a env) DIV))
+         (('< a b)                  `(,@(parse b env) ,@(parse a env) LT))
+         ((f a ...)                 `(,@(map (@< parse env) a) ,@(parse f env) AP))
+         ((? symbol? s)             `(LD ,(lookup env s)))
+         ((? integer? i)            `(LDC ,(arithmetic-shift i 3)))))
 
-(parse '(1 2 3))
-(parse 'blah)
-(parse '(if 1 1 2))
-(parse '(+ (* 1 1) (+ (- 2 1) (/ 3 2))))
-(parse '(< 1 2))
+(parse ''(1 2 3) '())
+
+(parse ''blah '())
+
+(parse '(+ (* 1 1) (+ (- 2 1) (/ 3 2))) '())
+(parse '(< 1 2) '())
+(parse '(if 1 1 2) '())
+
+(parse '(lambda (x y) (+ 1 x)) '())
+
+(parse '((lambda (a b c) (- (+ a b) c)) 1 2 3) '())
+
+(parse '(t 1 2 3) '((t)))
