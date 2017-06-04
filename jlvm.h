@@ -15,6 +15,7 @@ typedef enum {
     T_SYM  = 0x4,
 } type;
 
+// TODO: add symbol table
 typedef enum {
     LNIL, // push nil
     LDC,  // push a constant
@@ -25,6 +26,7 @@ typedef enum {
     AP,   // pops closure and parameter list to apply function
     TAP,  // tail apply (for proper tail-recursion)
     RAP,  // same as AP, but replaces a dummy env with current one for tail calls
+    PUSHE,// push top of stack onto env list (FIXME: should actually append to end)
     RET,  // pops return value from stack, restores S E C from dump
     DUM,  // push empty list in front of env list (used with RAP)
     CAR,  // cars the top of the stack and pushes it back

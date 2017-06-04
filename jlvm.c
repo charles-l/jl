@@ -143,6 +143,12 @@ int eval() {
                     C = (pair) car(c);
                 }
                 break;
+            case PUSHE:
+                {
+                    pair c = (pair) pop(&S);
+                    push((pair *) &(car_(E)), (long) c);
+                }
+                break;
             case RET:
                 {
                     long r = pop(&S);
