@@ -113,4 +113,6 @@
 
 (parse '(def (x a) a) (empty-env))
 
-(parse '(def (x a) (x 1)) (empty-env))
+(parse '(def (main)
+             (def (x a) a)
+             (x 1)) (empty-env))

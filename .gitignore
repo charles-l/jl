@@ -1,3 +1,5 @@
 jljit.c
 *.out
 jl
+jl-c
+*.pyc
